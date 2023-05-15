@@ -1,0 +1,71 @@
+#include "LPC214x.h"
+#include "lcd.h"
+#include "VIClowlevel.h"
+
+unsigned int AdcData =0;
+
+void DisplayHexLcd(int LcdData,char Row,char Col);
+void ReadAdc(unsigned int *Value);
+
+void _attribute_ ((interrupt("IRQ"))) timer0_routine(void)
+{
+	ISR_ENTRY();
+	AdcData = (AD0GDR & 0x0000FFC0)>>6;
+	DisplayHexLcd(AdcData,2,6);
+	VICVectAddr = 0x00;
+
+	AD0INTEN=0X00;
+	ISR_EXIT();
+}
+
+int main (void)
+{
+	edutechlcdinit();
+	edutechlcdstring("VAL HEX:",1,0);
+	edutechlcdstring("CH0 :",2,0);
+
+	while(1)
+	{
+
+
+	/* Config ADC Interrupt */
+	VICIntEnable |= (0x01 << 18);
+	VICVectAddr0 = (unsigned)timer0_routine;
+	VICVectCntl0 = (0x32);
+	enableIRQ();
+	// Config ADC
+			PINSEL1=(PINSEL1 & 0xFFFF00FF) | 0x01000000;	//ADC0.1
+			VPBDIV = 1;
+			AD0CR = 0x01200302;								//AD0.1
+			ADGSR = 0x01000000;
+			AD0INTEN=0X02;
+
+
+	return 0;
+	}
+}
+
+
+void DisplayHexLcd(int LcdData,char Row,char Col)
+{
+	unsigned char Character[17]={"0123456789ABCDEF"};
+    unsigned int DivValue=0x1000,BaseValue=16;
+    while(DivValue)
+    {
+    	edutechlcdcursorset(Row,Col++);
+    	edutechlcdData(Character[LcdData/DivValue]);
+        LcdData%=DivValue;
+        DivValue/=BaseValue;
+     }
+}
+
+
+/* ADC functions
+void ReadAdc(unsigned int *Value)
+{
+
+	// Read Value
+	while((AD0GDR & 0x80000000)!=0x80000000);
+	*Value = (AD0GDR & 0x0000FFC0)>>6;
+}
+*/
